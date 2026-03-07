@@ -1,195 +1,212 @@
-Treinamento de Segurança - Configuração de um firewall MIkrotik 
+#SixCore #DominandoRedes
 
-Equipamento: Mikrotik hPA lite (RouterOS 6.49.19 - long-term)
+# Treinamento de Segurança MikroTik – Firewall
 
-As regras criadas até então foram baseadas nas aulas do treinamento SixCore com o instrutor Leonardo Vieira de Albuquerque (http://linkedin.com/in/albuquerqueleonardo/).
-Poderão ser adicionadas novas regras futuramente com meu melhor desenvolvimento sobre o tema - Segurança.
-A sequência das regras segue sem filtro específico, ou seja, as chains estão agrupadas. 
+Oferecido pela empresa  
+*Controllar Sistemas de Segurança e Acesso LTDA*  
 
->>> Regra 1 - FastTrack <<<
+Tutorial do instrutor oficial MikroTik  
+**Leonardo Vieira de Albuquerque**  
+LinkedIn: http://linkedin.com/in/albuquerqueleonardo/
 
-Função: Acelerar o processamento de pacotes cuja conexão já está estabelecida, pulando assim etapas de firewall e reduzindo o uso de CPU do roteador.
-# Chain: forward
-# Connection state: established related
-# Action: fasttrack connection
+---
 
->>> Regra 2 - Bloquear conexões inválidas <<<
+# Índice
 
-Função: Bloqueia pacotes que fogem do padrão de conexões, exemplificando pacote que chega fora de ordem (um ACK isolado) ou um pertencente à uma conexão expirada.
-# Chain: forward
-# Connection state: invalid
-# Action: drop
+- [Equipamento utilizado](#equipamento-utilizado)
+- [Topologia da rede](#topologia-da-rede)
+- [Configuração INPUT](#configuração-input)
+- [Port Knocking](#port-knocking-sequência-de-portas)
+- [Configuração FORWARD](#configuração-forward)
+- [Regras administrativas](#regras-administrativas)
+- [Regra final de segurança](#regra-final-de-segurança)
 
->>> Regra 3 - Bloquear conexões inválidas <<<
+---
 
-# Chain: input
-# Connection state: invalid
-# Action: drop
+# Equipamento utilizado
 
->>> Regra 4 - Aceita conexões estabelecidas e relacionadas <<<
+| Item | Descrição |
+|-----|-----|
+| Dispositivo | MikroTik hAP Lite |
+| Modelo | RB941-2nD |
+| Sistema | RouterOS 6.49.19 (Long-term) |
 
-Função: Aquelas conexões já conhecidas pelo roteador são liberadas para manter uma conexão ativa. Conexões novas (primeiro contato) serão validadas nas regras seguintes e, caso aprovadas, passam para o estado de conexão estabelecido e relacionado.
+---
 
-# Chain: input
-# Connection state: established related
-# Action: accept
+# Topologia da rede
 
->>> Regra 5 - Aceita conexões estabelecidas e relacionadas <<<
+Exemplo simplificado da rede protegida pelo firewall:
 
-# Chain: forward
-# Connection state: established related
-# Action: accept
+```
+           INTERNET
+               │
+               │
+          ┌───────────┐
+          │  MikroTik │
+          │  Firewall │
+          └─────┬─────┘
+                │
+        ┌───────┴────────┐
+        │                │
+      LAN             Wi-Fi
+  192.168.88.0/24     Clients
+```
 
->>> Regra 6 - Obtém IP origem de quem tenta acesso WAN -> LAN <<<
+---
 
-Função: Aqueles na internet que tentam acesso direto à rede local têm seus endereços IP capturados e inseridos em uma lista "Hackers" por 7 dias.
-# Chain: forward
-# In. interface list: WAN
-# Out. interface list: LAN
-# Action: add src to address list
-# Address List: Hackers
-# Timeout: 7d 00:00:00
+# Configuração **INPUT**
 
->>> Regra 7 - Obtém IP origem de quem tenta acesso externo ao roteador <<<
+## 1 - Bloqueio de conexões inválidas
 
-Função: Aqueles na internet que tentam acesso direto às portas sensíveis do roteador têm seus endereços IP capturados e inseridos em uma lista "Hackers" por 7 dias.
-# Chain: input
-# Protocolo: TCP
-# Src. Port: 0-1024, 3389, 5900
-# In. interface list: WAN
-# Action: add src to address list
-# Address List: Hackers
-# Timeout: 7d 00:00:00
+```bash
+/ip firewall filter
+add chain=input connection-state=invalid action=drop
+```
+## 2 - Conexões estabelecidas e relacionadas
 
->>> Regra 8 - Obtenção de IP de origem daqueles que tentam PortScan <<<
+```bash
+/ip firewall filter
+add chain=input connection-state=established,related action=accept
+```
+## 3 - Obtém IP origem de quem tenta acesso externo ao roteador
 
-Função: Portas baixas (0-1024) recebem um peso 3, enquanto as demais portas ditas altas um peso 1; caso alguém tente bater nessas portas de tal forma que a soma dos pesos atinja 21 em menos de 3 segundos, o endereço IP é capturado e alocado na lista "Hackers" por 7 dias.
+```bash
+/ip firewall filter
+add chain=input protocol=tcp src-port=0-1024,3389,5900 in-interface-list=WAN action=add-src-to-address-list address-list=Hackers timeout=7d
+```
+## 4 - Obtém IP origem de quem tenta PortScan
 
-# CHain: input
-# Protocolo: TCP
-# PSD (PortScan Detective): 21 | 00:00:03 | 3 | 1
-# Action: add src to address list
-# Address List: Hackers
-# Timeout: 7d 00:00:00
+```bash
+/ip firewall filter
+add chain=input protocol=tcp psd=21,3s,3,1 action=add-src-to-address-list address-list=Hackers timeout=7d
+```
+## 5 - SSH Brute Force – Estágio 1
 
->>> Regra 9 - SSH Brute Force - Estagio 0 <<<
+```bash
+/ip firewall filter
+add chain=input protocol=tcp dst-port=22 in-interface-list=WAN connection-state=new action=add-src-to-address-list address-list=SSH_estagio_1 timeout=1m
+```
+## 6 - SSH Brute Force – Estágio 2
 
-Função: Aqueles na internet que tentarem acesso por SSH ao roteador pela porta 22 3 vezes em um intervalo inferior à 1 minuto entre as tentativas terão seus endereços IP alocados em uma lista de "Hackers" por 7 dias.
-# Chain: input
-# Protocolo: TCP
-# DST. Port: 22
-# In. Interface List: WAN
-# Connection state: new
-# Action: add src to address list
-# Address List: SSH_estagio_1
-# Timeout: 00:01:00
+```bash
+/ip firewall filter
+add chain=input protocol=tcp dst-port=22 in-interface-list=WAN connection-state=new src-address-list=SSH_estagio_1 action=add-src-to-address-list address-list=SSH_estagio_2 timeout=1m
+```
+## 7 - SSH Brute Force – Estágio 3
+```bash
+/ip firewall filter
+add chain=input protocol=tcp dst-port=22 in-interface-list=WAN connection-state=new src-address-list=SSH_estagio_2 action=add-src-to-address-list address-list=Hackers timeout=7d
+```
+# Port Knocking (Sequência de portas)
 
->>> Regra 10 - SSH Brute Force - Estagio 1 <<<
+## 8 - Fase 1
 
-# Chain: input
-# Protocolo: TCP
-# DST. Port: 22
-# In. Interface List: WAN
-# Connection state: new
-# Src. Address List: SSH_estagio_1
-# Action: add src to address list
-# Address List: SSH_estagio_2
-# Timeout: 00:01:00
+```bash
+/ip firewall filter
+add chain=input protocol=tcp dst-port=57153 action=add-src-to-address-list address-list="Sequencia-Portas-Fase1" timeout=10s
+```
+## 9 - Fase 2
 
->>> Regra 11 - SSH Brute Force - Estagio 2 <<<
+```bash
+/ip firewall filter
+add chain=input protocol=tcp dst-port=32570 src-address-list="Sequencia-Portas-Fase1" action=add-src-to-address-list address-list="Sequencia-Portas-Fase2" timeout=10s
+```
+## 10 - Fase 3
 
-# Chain: input
-# Protocolo: TCP
-# DST. Port: 22
-# In. Interface List: WAN
-# Connection state: new
-# Src. Address List: SSH_estagio_2
-# Action: add src to address list
-# Address List: Hackers
-# Timeout: 7d 00:00:00
+```bash
+/ip firewall filter
+add chain=input protocol=udp dst-port=4851 src-address-list="Sequencia-Portas-Fase2" action=add-src-to-address-list address-list="Sequencia-Portas-Fase3" timeout=10s
+```
+## 11 - Fase 4
 
->>> Regra 12 - Sequencia de portas - Fase 0 <<<
+```bash
+/ip firewall filter
+add chain=input protocol=tcp dst-port=49001 src-address-list="Sequencia-Portas-Fase3" action=add-src-to-address-list address-list="Sequencia-Portas-Fase4" timeout=10s
+```
+## 12 - Fase 5
 
-Função: Uma medida de validar quem tem acesso às informações privilegiadas através de uma senha, um métodos conhecido como Port Knock. Quem souber a sequência correta das portas obtém acesso à lista de IPs liberados.
-# Chain: input
-# Protocolo: TCP
-# Dst. Port: 57153
-# Action: add src to address list
-# Address List: Sequencia de Portas - Fase 1
-# Timeout: 00:00:10
+```bash
+/ip firewall filter
+add chain=input protocol=tcp dst-port=61013 src-address-list="Sequencia-Portas-Fase4" action=add-src-to-address-list address-list="Sequencia-Portas-Fase5" timeout=10s
+```
+## 13 - Liberação final
 
->>> Regra 13 - Sequencia de portas - Fase 1 <<<
-# Chain: input
-# Protocolo: TCP
-# Dst. Port: 32570
-# Src. Address List: Sequencia de Portas - Fase 1
-# Action: add src to address list
-# Address List: Sequencia de Portas - Fase 2
-# Timeout: 00:00:10
+```bash
+/ip firewall filter
+add chain=input protocol=tcp dst-port=26012 src-address-list="Sequencia-Portas-Fase5" action=add-src-to-address-list address-list="Sequencia-Portas-Liberados" timeout=4h
+```
+---
 
->>> Regra 14 - Sequencia de portas - Fase 2 <<<
-# Chain: input
-# Protocolo: UDP
-# Dst. Port: 4851
-# Src. Address List: Sequencia de Portas - Fase 2
-# Action: add src to address list
-# Address List: Sequencia de Portas - Fase 3
-# Timeout: 00:00:10
+# Configuração **FORWARD**
 
->>> Regra 15 - Sequencia de portas - Fase 3 <<<
-# Chain: input
-# Protocolo: TCP
-# Dst. Port: 49001
-# Src. Address List: Sequencia de Portas - Fase 3
-# Action: add src to address list
-# Address List: Sequencia de Portas - Fase 4
-# Timeout: 00:00:10
+## 14 - FastTrack para conexões estabelecidas
 
->>> Regra 16 - Sequencia de portas - Fase 4 <<<
-# Chain: input
-# Protocolo: TCP
-# Dst. Port: 61013
-# Src. Address List: Sequencia de Portas - Fase 4
-# Action: add src to address list
-# Address List: Sequencia de Portas - Fase 5
-# Timeout: 00:00:10
+```bash
+/ip firewall filter
+add chain=forward connection-state=established,related action=fasttrack-connection
+```
+## 15 - Bloqueio de conexões inválidas
 
->>> Regra 17 - Sequencia de portas - Fase 5 <<<
-# Chain: input
-# Protocolo: TCP
-# Dst. Port: 26012
-# Src. Address List: Sequencia de Portas - Fase 5
-# Action: add src to address list
-# Address List: Sequencia de Portas - Liberados
-# Timeout: 04:00:00
+```bash
+/ip firewall filter
+add chain=forward connection-state=invalid action=drop
+```
+## 16 - Aceitar conexões estabelecidas e relacionadas
 
->>> Regra 18 - Permissao de acesso a internet <<<
-# Chain: forward
-# In. Interface LIst: LAN
-# Out. Interface List: WAN
-# Action: Accept
+```bash
+/ip firewall filter
+add chain=forward connection-state=established,related action=accept
+```
+## 17 - Captura de IP tentando acessar LAN pela WAN
 
->>> Regra 19 - Permite acesso LAN ao roteador (exceto às portas administrativas de rede)
-# Chain: input
-# Protocolo: TCP
-# Dst. Ports: !3596, 2498, 5124 (portas subtitutas às 8129, 80, 443)
-# In. Interface List: LAN
-# Action: Accept
+```bash
+/ip firewall filter
+add chain=forward in-interface-list=WAN out-interface-list=LAN action=add-src-to-address-list address-list=Hackers timeout=7d
+```
+## 18 - Permitir acesso LAN → Internet
 
->>> Regra 20 - Libera WinBox, Webfig <<< 
-# Chain: input
-# Protocolo: TCP
-# Dst. Ports: 3596, 2498, 5124
-# In. Interface List: LAN
-# Src. Address List: Sequencia de Portas - Liberados 
-# Action: Accept
+```bash
+/ip firewall filter
+add chain=forward in-interface-list=LAN out-interface-list=WAN action=accept
+```
 
-CONTINUA....
+---
 
+# Regras administrativas
 
+## 19 - Permitir acesso LAN ao roteador (exceto portas administrativas)
 
+```bash
+/ip firewall filter
+add chain=input protocol=tcp dst-port=!3596,2498,5124 in-interface-list=LAN action=accept
+```
+## 20 - Liberar WinBox e WebFig apenas para IP autorizado
 
+```bash
+/ip firewall filter
+add chain=input protocol=tcp dst-port=3596,2498,5124 src-address-list="Sequencia-Portas-Liberados" in-interface-list=LAN action=accept
+```
 
+---
 
+# Regra final de segurança
 
+## 21 - Drop geral
 
+```bash
+/ip firewall filter
+add chain=input action=drop
+```
+
+---
+
+# Observação
+
+Este laboratório tem como objetivo demonstrar técnicas de **hardening de firewall em MikroTik**, incluindo:
+
+- proteção contra **Port Scan**
+- proteção contra **Brute Force**
+- **Port Knocking**
+- bloqueio automático de IPs suspeitos
+
+Novas regras poderão ser adicionadas conforme evolução dos estudos em **segurança de redes**.
