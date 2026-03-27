@@ -20,6 +20,10 @@ Este projeto simula a infraestrutura completa de um hotel corporativo com:
 
 Ambiente desenvolvido em laboratório utilizando **EVE-NG + MikroTik RouterOS v7**.
 
+## 🖼️ Diagrama da Topologia
+
+![Diagrama SixCore](diagrama_SixCore.drawio.png)
+![Diagrama EVE-NG](diagrama_eve.png)
 ---
 
 ## 🧠 Arquitetura
