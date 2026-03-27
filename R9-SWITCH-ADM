@@ -1,0 +1,69 @@
+# ================================
+# DEVICE: R9-SWITCH-ADM
+# RouterOS: 7.20.8
+# FUNÇÃO: Switch de Acesso (Administrativo / VLAN 100)
+# ================================
+
+# === BRIDGE ===
+/interface bridge
+add name=bridge-adm vlan-filtering=yes comment="Bridge VLAN 100 (Administrativo)"
+
+# === INTERFACES ===
+/interface ethernet
+set [ find default-name=ether1 ] comment="Uplink (Trunk para Core)"
+set [ find default-name=ether2 ] comment="PC ADM 1"
+set [ find default-name=ether3 ] comment="PC ADM 2"
+set [ find default-name=ether4 ] comment="PC ADM 3"
+set [ find default-name=ether5 ] comment="PC ADM 4"
+set [ find default-name=ether6 ] comment="PC ADM 5"
+set [ find default-name=ether7 ] comment="PC ADM 6"
+set [ find default-name=ether8 ] comment="PC ADM 7"
+set [ find default-name=ether9 ] comment="PC ADM 8"
+set [ find default-name=ether10 ] comment="PC ADM 9"
+set [ find default-name=ether11 ] comment="PC ADM 10"
+set [ find default-name=ether12 ] comment="PC ADM 11"
+
+# === PORTAS NA BRIDGE ===
+
+# Uplink (TRUNK)
+add bridge=bridge-adm interface=ether1 comment="Trunk para Switch-Core"
+
+# Access ports (ADM)
+add bridge=bridge-adm interface=ether2 pvid=100
+add bridge=bridge-adm interface=ether3 pvid=100
+add bridge=bridge-adm interface=ether4 pvid=100
+add bridge=bridge-adm interface=ether5 pvid=100
+add bridge=bridge-adm interface=ether6 pvid=100
+add bridge=bridge-adm interface=ether7 pvid=100
+add bridge=bridge-adm interface=ether8 pvid=100
+add bridge=bridge-adm interface=ether9 pvid=100
+add bridge=bridge-adm interface=ether10 pvid=100
+add bridge=bridge-adm interface=ether11 pvid=100
+add bridge=bridge-adm interface=ether12 pvid=100
+
+# === VLAN ===
+/interface bridge vlan
+add bridge=bridge-adm vlan-ids=100 \
+    tagged=ether1 \
+    untagged=ether2,ether3,ether4,ether5,ether6,ether7,ether8,ether9,ether10,ether11,ether12
+
+# === GERENCIAMENTO ===
+/ip dhcp-client
+add interface=bridge-adm comment="IP de gerenciamento"
+
+# === DHCP (OPCIONAL) ===
+/ip pool
+add name=pool-adm ranges=192.168.1.2-192.168.1.125
+
+/ip dhcp-server
+add name=dhcp-adm interface=bridge-adm address-pool=pool-adm disabled=yes
+
+/ip dhcp-server network
+add address=192.168.1.0/25 gateway=192.168.1.1 comment="Rede Administrativa"
+
+# === SISTEMA ===
+/system identity
+set name=Switch-ADM
+
+/tool romon
+set enabled=yes
