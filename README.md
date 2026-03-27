@@ -36,7 +36,7 @@ Ambiente desenvolvido em laboratório utilizando **EVE-NG + MikroTik RouterOS v7
 
 ✔️ BGP multi-homing
 ✔️ Anúncio e filtragem de rotas
-✔️ IPv4 + IPv6
+✔️ IPv4
 
 ---
 
@@ -93,7 +93,7 @@ Ambiente desenvolvido em laboratório utilizando **EVE-NG + MikroTik RouterOS v7
 
 ### 📶 Camada de Usuário (Edge)
 
-#### 🔹 R10 – APs por Quarto
+#### 🔹 R10 – AccessPoints por Quarto
 
 * VLAN 200
 * Hotspot (captive portal)
@@ -102,13 +102,75 @@ Ambiente desenvolvido em laboratório utilizando **EVE-NG + MikroTik RouterOS v7
 
 ---
 
-## 🔐 Segmentação de Rede
+## 🌐 Redes WAN / Links entre Provedores
 
-| VLAN | Uso           | Subrede          |
-| ---- | ------------- | ---------------- |
-| 100  | Administração | 192.168.1.0/25   |
-| 200  | Clientes      | 192.168.2.0/25   |
-| 300  | Segurança     | 192.168.1.128/25 |
+| Link                        | Subrede              | Equipamentos                     |
+|-----------------------------|----------------------|----------------------------------|
+| Claro ↔ LinkSpeed           | 185.184.183.180/30   | Claro / LinkSpeed                |
+| Claro ↔ BHNet               | 75.74.73.72/30       | Claro / BHNet                    |
+| LinkSpeed ↔ BHNet           | 20.20.30.28/30       | LinkSpeed / BHNet                |
+| LinkSpeed ↔ Hotel Primário  | 150.150.160.160/29   | LinkSpeed / Hotel Primário       |
+| LinkSpeed ↔ Hotel Backup    | 150.150.140.136/29   | LinkSpeed / Hotel Backup         |
+| BHNet ↔ Hotel Primário      | 220.220.230.224/29   | BHNet / Hotel Primário           |
+| BHNet ↔ Hotel Backup        | 230.230.240.240/29   | BHNet / Hotel Backup             |
+
+---
+
+## 🌍 Redes Anunciadas via BGP
+
+### 🔵 Claro (AS 300)
+
+| Prefixo              | Tipo         |
+|----------------------|-------------|
+| 200.100.10.0/24      | Anunciado   |
+| 200.100.20.0/24      | Anunciado   |
+| 200.100.30.0/24      | Anunciado   |
+| 200.100.40.0/24      | Anunciado   |
+| 70.70.68.0/22        | Anunciado   |
+| 70.70.70.0/23        | Anunciado   |
+| 70.70.70.0/24        | Anunciado   |
+
+---
+
+### 🟢 LinkSpeed (AS 100)
+
+| Prefixo        | Tipo       |
+|----------------|-----------|
+| 200.2.0.0/22   | Próprio   |
+| 200.2.0.0/23   | Próprio   |
+| 200.2.0.0/24   | Próprio   |
+
+---
+
+### 🟣 BHNet (AS 200)
+
+| Prefixo        | Tipo       |
+|----------------|-----------|
+| 5.4.3.0/24     | Próprio   |
+| 9.8.7.0/24     | Próprio   |
+
+---
+
+## 🔒 Redes Internas e Serviços
+
+| Uso              | Subrede             | Observação |
+|------------------|---------------------|------------|
+| CGNAT Hotel      | 100.64.0.0/30       | PPPoE      |
+| WireGuard        | 10.0.0.0/30         | VPN BHNet ↔ Hotel |
+| Hotspot          | 10.5.50.0/24        | Quartos    |
+| Pool VPN         | 10.250.250.0/29     | Acesso remoto |
+
+---
+
+## 🔐 VLANs internas do Hotel
+
+| VLAN | Uso                  | Subrede            |
+|------|----------------------|--------------------|
+| 100  | Administração        | 192.168.1.0/25     |
+| 200  | Clientes (Quartos)   | 192.168.2.0/25     |
+| 300  | Segurança            | 192.168.1.128/25   |
+
+---
 
 ✔️ Isolamento entre redes
 ✔️ Controle de tráfego
@@ -169,45 +231,6 @@ Ambiente desenvolvido em laboratório utilizando **EVE-NG + MikroTik RouterOS v7
 
 ---
 
-## 🖼️ Diagrama (Draw.io)
-
-Sugestão de organização visual:
-
-* 🔵 Core (centro)
-* 🟢 Access (embaixo)
-* 🔴 ISPs (topo)
-* 🟡 APs (bordas)
-
-Labels importantes:
-
-* “BGP Peering”
-* “VLAN Trunk”
-* “Client Network (Isolated)”
-* “CFTV Network (Restricted)”
-
----
-
-## 🔗 Estrutura no Repositório (GitHub)
-
-```
-lab-eveng-mikrotik/
-│
-├── R1-Claro/
-├── R2-LinkSpeed/
-├── R3-BHNet/
-├── R4-Hotel-Primario/
-├── R5-Hotel-Backup/
-├── R6-Switch-Core/
-├── R7-Switch-Quartos/
-├── R8-Switch-Seguranca/
-├── R9-Switch-ADM/
-├── R10-AP-Quarto/
-│
-└── README.md
-```
-
----
-
 ## 🚀 Objetivo do Projeto
 
 Demonstrar conhecimento em:
@@ -220,27 +243,15 @@ Demonstrar conhecimento em:
 
 ---
 
-## 💼 Aplicação Profissional
-
-Este projeto é compatível com funções como:
-
-* NOC (Nível 2 / 3)
-* Analista de Redes
-* Suporte ISP
-* Infraestrutura corporativa
-* Integrador de sistemas (CFTV + rede)
-
----
-
 ## 🧠 Conclusão
 
-Este laboratório representa um ambiente realista de produção, integrando:
+Este laboratório representa um ambiente de produção, integrando:
 
 * Provedor (ISP)
 * Cliente corporativo
 * Acesso de usuários
 * Segurança e segmentação
 
-Projeto completo, organizado e pronto para apresentação técnica.
+Primeiro projeto finalizado!
 
 ---
